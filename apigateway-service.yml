@@ -106,7 +106,7 @@ jasypt:
 
 token:
   # GitHub에 올라가지만 암호화되어 있어 안전함
-  secret: ENC(Seuu4rHHCCB6Nt3Ux8vjKWKP+jNgv7OOlrEcQiq4K6SbnRDqltADC+mQq8aumV87bU8wMgqBuMZVqqLnkWKIvw==)
+  secret: ENC(5gtmaAozpeoVMs1gbym2Lt6S32ztOuqnUkaGG458uuYv8DIBuvvF1KBid6L5WQweh95w6TYjgLrzxyCQ/qsOtpGWzmdOY3QY9uq7JyjieyoYRN056Y368w8O1BkSiS8Cindl6C8GNKStrUISmfrUew==)
 
 # 4. Resilience4j (Circuit Breaker & TimeLimiter)
 resilience4j:
