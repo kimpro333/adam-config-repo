@@ -1,0 +1,198 @@
+# ==============================================================================
+# API Gateway Service Configuration (Standard YAML Format)
+# ==============================================================================
+
+server:
+  port: 8000
+  # [Standard 41] Graceful Shutdown 활성화 (Netty)
+  shutdown: graceful # 의미: "서버 끌 때, 팍 꺼버리지 말고 하던 일은 마저 하고 꺼라."
+
+spring:
+  application:
+    name: apigateway-service
+
+  lifecycle:
+    # [Standard 41] 종료 대기 타임아웃 (30초)
+    timeout-per-shutdown-phase: 30s
+
+  # ✅ [New] Jasypt 설정 (Standard 33)
+  # - 실행 시 VM Option 필요: -Djasypt.encryptor.password=비밀번호
+  jasypt:
+    encryptor:
+      bean: jasyptStringEncryptor
+      algorithm: PBEWithMD5AndDES
+      iv-generator-classname: org.jasypt.iv.NoIvGenerator
+
+  # ----------------------------------------------------------------------------
+  # 1. Redis 설정 (Rate Limiter 필수)
+  # ----------------------------------------------------------------------------
+  data:
+    redis:
+      host: localhost
+      port: 6379
+
+  # ----------------------------------------------------------------------------
+  # 2. Spring Cloud Gateway 라우팅 & 필터 설정
+  # ----------------------------------------------------------------------------
+  cloud:
+    gateway:
+      # ✅ [신규] Netty HTTP Client 타임아웃 설정 (좀비 연결 방지)
+      httpclient:
+        connect-timeout: 5000
+        response-timeout: 5000
+      
+      # ✅ [신규] CORS 설정 (프론트엔드 연동 필수)
+      globalcors:
+        cors-configurations:
+          '[/**]':
+            allowedOrigins: "*" # 🔒 [보안] 추후 구체적 도메인으로 변경 권장
+            allowedMethods:
+              - GET
+              - POST
+              - PUT
+              - DELETE
+              - OPTIONS
+            allowedHeaders: "*"
+            allowCredentials: false # allowedOrigins가 *일 때는 false여야 함
+
+      routes:
+        # (1) 회원 서비스 (로그인/회원가입 - Public)
+        - id: member-service
+          uri: lb://MEMBER-SERVICE
+          predicates:
+            - Path=/member-service/**
+            - Path=/api/v1/members/**
+          filters:
+            # ✅ [보강] 장애 격리 (CircuitBreaker) 추가
+            - name: CircuitBreaker 
+              args:
+                name: memberCircuitBreaker
+                fallbackUri: forward:/fallback/member
+
+        # (2) 상품 서비스 (조회 - Public)
+        - id: catalog-service
+          uri: lb://CATALOG-SERVICE
+          predicates:
+            - Path=/catalog-service/**
+            - Path=/api/v1/products/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: catalogCircuitBreaker
+                fallbackUri: forward:/fallback/catalog
+
+        # (3) 주문 서비스 (로그인 필수 + 속도 제한 + 장애 격리)
+        - id: order-service
+          uri: lb://ORDER-SERVICE
+          predicates:
+            - Path=/order-service/**
+            - Path=/api/v1/orders/**
+          filters:
+            # 1) JWT 토큰 검증
+            - AuthorizationHeaderFilter
+            # 2) 서킷 브레이커 (주문 폭주 대비)
+            - name: CircuitBreaker
+              args:
+                name: orderCircuitBreaker
+                fallbackUri: forward:/fallback/order
+            # 3) 속도 제한 (Rate Limiter)
+            - name: RequestRateLimiter
+              args:
+                key-resolver: "#{@userKeyResolver}" # ⚠️ RateLimitConfig Bean 필요
+                redis-rate-limiter.replenishRate: 10
+                redis-rate-limiter.burstCapacity: 20
+                redis-rate-limiter.requestedTokens: 1
+
+        # (4) 검색 서비스
+        - id: search-service
+          uri: lb://SEARCH-SERVICE
+          predicates:
+            - Path=/search-service/**
+            - Path=/api/v1/search/**
+
+        # (5) 배송 서비스
+        - id: delivery-service
+          uri: lb://DELIVERY-SERVICE
+          predicates:
+            - Path=/delivery-service/**
+            - Path=/api/v1/deliveries/**
+          filters:
+            - AuthorizationHeaderFilter # 배송 조회 보안 적용
+
+        # (6) 배치 서비스
+        - id: batch-service
+          uri: lb://BATCH-SERVICE
+          predicates:
+            - Path=/batch-service/**
+
+        # (7) 결제 서비스
+        - id: payment-service
+          uri: lb://PAYMENT-SERVICE
+          predicates:
+            - Path=/payment-service/**
+          filters:
+            - AuthorizationHeaderFilter
+            - name: CircuitBreaker
+              args:
+                name: paymentCircuitBreaker
+                fallbackUri: forward:/fallback/payment
+
+# ==============================================================================
+# 3. 운영 및 모니터링 설정 (Actuator, Zipkin)
+# ==============================================================================
+management:
+  # [Standard 38] 분산 추적 설정 (로컬 개발 시 오류 방지)
+  tracing:
+    sampling:
+      probability: 0.0 # Zipkin 부하 방지
+    enabled: false # 로컬 환경 비활성화
+  zipkin:
+    tracing:
+      endpoint: http://localhost:9411/api/v2/spans
+  
+  # [Standard 39/40] Actuator 엔드포인트 노출 (Gateway 전용 메트릭 포함)
+  endpoints:
+    web:
+      exposure:
+        include: health, info, prometheus, gateway, circuitbreakers
+
+# ==============================================================================
+# 4. Resilience4j 설정 (Reactive - Gateway 전용)
+# ==============================================================================
+resilience4j:
+  circuitbreaker:
+    configs:
+      default:
+        slidingWindowType: COUNT_BASED
+        slidingWindowSize: 10
+        minimumNumberOfCalls: 5
+        failureRateThreshold: 50
+        waitDurationInOpenState: 10s
+        permittedNumberOfCallsInHalfOpenState: 3
+        registerHealthIndicator: true
+  
+  # ✅ [Reactive] 타임리미터 설정 (Gateway는 비동기라 TimeLimiter 사용)
+  timelimiter:
+    configs:
+      default:
+        timeoutDuration: 5s # 5초 이상 응답 없으면 Fallback 처리
+
+# ==============================================================================
+# 5. Eureka Client 설정
+# ==============================================================================
+eureka:
+  client:
+    register-with-eureka: true
+    fetch-registry: true
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+  instance:
+    prefer-ip-address: true
+
+# ==============================================================================
+# 6. JWT 시크릿 (AuthorizationHeaderFilter용)
+# ==============================================================================
+token:
+  # ✅ [해결] 기술부채 33번 청산: 평문 제거 -> Jasypt 암호화 적용
+  # 아래 값은 'adam_project_secret'으로 암호화된 예시입니다. 본인의 키로 다시 생성해서 넣으세요.
+  secret: ENC(ds2vH0Gr+5y1RL9KQpGyUSc9w1t6qjujfID4iPDhZouSTGJS2DKZiOjKCt5XnZt0otIZoRsAzx61NHbOgBDumATie96Q+qD+Y6ebyfhEGdkCDKEKtgR8NIWX14S8GhAaEJgBwcaTpPjOqq7uktuc16VE+H7jdrO8A8CWfo93PhQApHDBJCdLe3qZggCfrL5Rin6tJndujwyc8fBwquE9Ys5UwmB9b1UZBilsAastrBXiIENlWb+RaggcANTkIsLX)
