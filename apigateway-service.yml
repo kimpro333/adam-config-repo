@@ -19,10 +19,17 @@ spring:
           '[/**]':
             allowedOrigins: "*"
             allowedMethods:
-              - GET, POST, PUT, DELETE, OPTIONS
+              - GET
+              - POST
+              - PUT
+              - DELETE
+              - OPTIONS
             allowedHeaders: "*"
             allowCredentials: false
+      
+      # 🚦 라우팅 규칙 정의
       routes:
+        # (1) Member Service (회원)
         - id: member-service
           uri: lb://MEMBER-SERVICE
           predicates:
@@ -34,6 +41,7 @@ spring:
                 name: memberCircuitBreaker
                 fallbackUri: forward:/fallback/member
 
+        # (2) Catalog Service (상품)
         - id: catalog-service
           uri: lb://CATALOG-SERVICE
           predicates:
@@ -45,13 +53,14 @@ spring:
                 name: catalogCircuitBreaker
                 fallbackUri: forward:/fallback/catalog
 
+        # (3) Order Service (주문) - RateLimit & Auth 적용
         - id: order-service
           uri: lb://ORDER-SERVICE
           predicates:
             - Path=/order-service/**
             - Path=/api/v1/orders/**
           filters:
-            - AuthorizationHeaderFilter
+            - AuthorizationHeaderFilter # JWT 검증
             - name: CircuitBreaker
               args:
                 name: orderCircuitBreaker
@@ -63,12 +72,14 @@ spring:
                 redis-rate-limiter.burstCapacity: 20
                 redis-rate-limiter.requestedTokens: 1
 
+        # (4) Search Service (검색)
         - id: search-service
           uri: lb://SEARCH-SERVICE
           predicates:
             - Path=/search-service/**
             - Path=/api/v1/search/**
 
+        # (5) Delivery Service (배송)
         - id: delivery-service
           uri: lb://DELIVERY-SERVICE
           predicates:
@@ -77,11 +88,13 @@ spring:
           filters:
             - AuthorizationHeaderFilter
 
+        # (6) Batch Service (배치/통계)
         - id: batch-service
           uri: lb://BATCH-SERVICE
           predicates:
             - Path=/batch-service/**
 
+        # (7) Payment Service (결제)
         - id: payment-service
           uri: lb://PAYMENT-SERVICE
           predicates:
@@ -93,13 +106,13 @@ spring:
                 name: paymentCircuitBreaker
                 fallbackUri: forward:/fallback/payment
 
-  # 2. Redis 설정 (환경변수 대응)
+  # 2. Redis 설정 (Rate Limiting용)
   data:
     redis:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
 
-# 3. Jasypt & Security
+# 3. Jasypt & Security (암호화 키)
 jasypt:
   encryptor:
     bean: jasyptStringEncryptor
@@ -109,7 +122,7 @@ jasypt:
     string-output-type: base64
 
 token:
-  # GitHub에 올라가지만 암호화되어 있어 안전함
+  # JWT Secret Key (AES-256 Encrypted)
   secret: ENC(5gtmaAozpeoVMs1gbym2Lt6S32ztOuqnUkaGG458uuYv8DIBuvvF1KBid6L5WQweh95w6TYjgLrzxyCQ/qsOtpGWzmdOY3QY9uq7JyjieyoYRN056Y368w8O1BkSiS8Cindl6C8GNKStrUISmfrUew==)
 
 # 4. Resilience4j (Circuit Breaker & TimeLimiter)
@@ -129,19 +142,27 @@ resilience4j:
       default:
         timeoutDuration: 5s
 
-# 5. Management & Eureka
+# 5. Management & Actuator (핵심 관제 설정)
 management:
   tracing:
     sampling:
-      probability: 1.0
+      probability: 1.0 # Zipkin 100% 수집
   zipkin:
     tracing:
       endpoint: http://localhost:9411/api/v2/spans
+  
+  # ✅ [Critical] Actuator Endpoint 노출 설정
   endpoints:
     web:
       exposure:
         include: health, info, prometheus, gateway, circuitbreakers
+  
+  # ✅ [Critical] Gateway 라우팅 정보 열람 활성화 (이게 있어야 404 안 뜸)
+  endpoint:
+    gateway:
+      enabled: true
 
+# 6. Eureka Client
 eureka:
   client:
     register-with-eureka: true
@@ -150,3 +171,4 @@ eureka:
       defaultZone: http://localhost:8761/eureka/
   instance:
     prefer-ip-address: true
+    instance-id: ${spring.application.name}:${spring.application.instance_id:${random.value}}
