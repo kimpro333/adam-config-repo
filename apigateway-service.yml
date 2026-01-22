@@ -27,40 +27,37 @@ spring:
             allowedHeaders: "*"
             allowCredentials: false
       
-      # 🚦 라우팅 규칙 정의
+      # 🚦 라우팅 규칙 정의 (주의: Path 조건은 콤마(,)로 구분해야 OR 조건으로 동작함)
       routes:
-        # (1) Member Service (회원)
+        # (1) Member Service
         - id: member-service
           uri: lb://MEMBER-SERVICE
           predicates:
-            - Path=/member-service/**
-            - Path=/api/v1/members/**
+            - Path=/member-service/**, /api/v1/members/** # ✅ 콤마로 연결 (OR 조건)
           filters:
             - name: CircuitBreaker
               args:
                 name: memberCircuitBreaker
                 fallbackUri: forward:/fallback/member
 
-        # (2) Catalog Service (상품)
+        # (2) Catalog Service
         - id: catalog-service
           uri: lb://CATALOG-SERVICE
           predicates:
-            - Path=/catalog-service/**
-            - Path=/api/v1/products/**
+            - Path=/catalog-service/**, /api/v1/products/** # ✅ 콤마로 연결
           filters:
             - name: CircuitBreaker
               args:
                 name: catalogCircuitBreaker
                 fallbackUri: forward:/fallback/catalog
 
-        # (3) Order Service (주문) - RateLimit & Auth 적용
+        # (3) Order Service
         - id: order-service
           uri: lb://ORDER-SERVICE
           predicates:
-            - Path=/order-service/**
-            - Path=/api/v1/orders/**
+            - Path=/order-service/**, /api/v1/orders/** # ✅ 콤마로 연결
           filters:
-            - AuthorizationHeaderFilter # JWT 검증
+            - AuthorizationHeaderFilter
             - name: CircuitBreaker
               args:
                 name: orderCircuitBreaker
@@ -72,33 +69,31 @@ spring:
                 redis-rate-limiter.burstCapacity: 20
                 redis-rate-limiter.requestedTokens: 1
 
-        # (4) Search Service (검색)
+        # (4) Search Service
         - id: search-service
           uri: lb://SEARCH-SERVICE
           predicates:
-            - Path=/search-service/**
-            - Path=/api/v1/search/**
+            - Path=/search-service/**, /api/v1/search/** # ✅ 콤마로 연결
 
-        # (5) Delivery Service (배송)
+        # (5) Delivery Service
         - id: delivery-service
           uri: lb://DELIVERY-SERVICE
           predicates:
-            - Path=/delivery-service/**
-            - Path=/api/v1/deliveries/**
+            - Path=/delivery-service/**, /api/v1/deliveries/** # ✅ 콤마로 연결
           filters:
             - AuthorizationHeaderFilter
 
-        # (6) Batch Service (배치/통계)
+        # (6) Batch Service
         - id: batch-service
           uri: lb://BATCH-SERVICE
           predicates:
-            - Path=/batch-service/**
+            - Path=/batch-service/** # (단일 경로는 그대로 유지)
 
-        # (7) Payment Service (결제)
+        # (7) Payment Service
         - id: payment-service
           uri: lb://PAYMENT-SERVICE
           predicates:
-            - Path=/payment-service/**
+            - Path=/payment-service/** # (단일 경로는 그대로 유지)
           filters:
             - AuthorizationHeaderFilter
             - name: CircuitBreaker
@@ -157,7 +152,7 @@ management:
       exposure:
         include: health, info, prometheus, gateway, circuitbreakers
   
-  # ✅ [Critical] Gateway 라우팅 정보 열람 활성화 (이게 있어야 404 안 뜸)
+  # ✅ [Critical] Gateway 라우팅 정보 열람 활성화
   endpoint:
     gateway:
       enabled: true
