@@ -26,7 +26,7 @@ spring:
               - OPTIONS
             allowedHeaders: "*"
             allowCredentials: false
-      
+       
       # 🚦 라우팅 규칙 정의 (주의: Path 조건은 콤마(,)로 구분해야 OR 조건으로 동작함)
       routes:
         # (1) Member Service
@@ -145,25 +145,26 @@ management:
   zipkin:
     tracing:
       endpoint: http://localhost:9411/api/v2/spans
-  
+   
   # ✅ [Critical] Actuator Endpoint 노출 설정
   endpoints:
     web:
       exposure:
         include: health, info, prometheus, gateway, circuitbreakers
-  
+   
   # ✅ [Critical] Gateway 라우팅 정보 열람 활성화
   endpoint:
     gateway:
       enabled: true
 
 # 6. Eureka Client
+# ✅ [Fix] 401 에러 해결을 위한 보안 계정(adam-eureka) 주입 완료
 eureka:
   client:
     register-with-eureka: true
     fetch-registry: true
     service-url:
-      defaultZone: http://localhost:8761/eureka/
+      defaultZone: http://adam-eureka:${EUREKA_SERVER_PASSWORD:adam-secret}@localhost:8761/eureka/
   instance:
     prefer-ip-address: true
     instance-id: ${spring.application.name}:${spring.application.instance_id:${random.value}}
