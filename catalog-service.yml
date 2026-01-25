@@ -1,0 +1,35 @@
+server:
+  port: 8082 # ✅ [Fix] Member(8081)와 충돌 방지
+
+spring:
+  application:
+    name: catalog-service
+  
+  # [Database] H2 Console 및 JPA 설정 (초기 개발용)
+  # 추후 MariaDB 연결 시 url과 password에 ENC(...) 적용 필수
+  h2:
+    console:
+      enabled: true
+      settings:
+        web-allow-others: true
+      path: /h2-console
+  datasource:
+    driver-class-name: org.h2.Driver
+    url: jdbc:h2:mem:testdb
+    username: sa
+    password: "" 
+  jpa:
+    hibernate:
+      ddl-auto: update # 실무 운영시 validate 또는 none으로 변경
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+
+# [Discovery] Eureka 등록
+eureka:
+  client:
+    register-with-eureka: true
+    fetch-registry: true
+    service-url:
+      defaultZone: http://localhost:8761/eureka

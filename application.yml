@@ -1,0 +1,36 @@
+# [Global Configuration] 모든 MSA 서비스 공통 적용
+spring:
+  # 1. 한글 깨짐 방지
+  http:
+    encoding:
+      charset: UTF-8
+      enabled: true
+      force: true
+  
+  # 2. 날짜 포맷 통일 (ISO-8601)
+  mvc:
+    format:
+      date: yyyy-MM-dd
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+      
+  # 3. [Bus] 설정 변경 전파 (Kafka)
+  cloud:
+    bus:
+      enabled: true
+      
+management:
+  # 4. [Ops] 헬스체크 및 메트릭 노출 표준화
+  endpoints:
+    web:
+      exposure:
+        include: health, info, prometheus, bus-refresh
+  endpoint:
+    health:
+      show-details: always
+  
+  # 5. [Tracing] 분산 추적 (Zipkin/Micrometer)
+  tracing:
+    sampling:
+      probability: 1.0
