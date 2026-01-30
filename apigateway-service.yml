@@ -1,13 +1,5 @@
-# ==============================================================================
-# [Remote Config] API Gateway Service - Dynamic Configuration
-# 이 파일은 GitHub에서 관리되며, 변경 시 서버 재배포 없이 /bus-refresh로 반영됩니다.
-# ==============================================================================
-
-# ✅ [Core] 포트 강제 지정 (Local 설정을 덮어쓰기 위함)
 server:
   port: 8000
-
-# 1. Spring Cloud Gateway 라우팅 & 필터
 spring:
   cloud:
     gateway:
@@ -18,44 +10,32 @@ spring:
         cors-configurations:
           '[/**]':
             allowedOrigins: "*"
-            allowedMethods:
-              - GET
-              - POST
-              - PUT
-              - DELETE
-              - OPTIONS
+            allowedMethods: "*"
             allowedHeaders: "*"
             allowCredentials: false
-       
-      # 🚦 라우팅 규칙 정의 (주의: Path 조건은 콤마(,)로 구분해야 OR 조건으로 동작함)
       routes:
-        # (1) Member Service
         - id: member-service
           uri: lb://MEMBER-SERVICE
           predicates:
-            - Path=/member-service/**, /api/v1/members/** # ✅ 콤마로 연결 (OR 조건)
+            - Path=/member-service/**, /api/v1/members/**
           filters:
             - name: CircuitBreaker
               args:
                 name: memberCircuitBreaker
                 fallbackUri: forward:/fallback/member
-
-        # (2) Catalog Service
         - id: catalog-service
           uri: lb://CATALOG-SERVICE
           predicates:
-            - Path=/catalog-service/**, /api/v1/products/** # ✅ 콤마로 연결
+            - Path=/catalog-service/**, /api/v1/products/**
           filters:
             - name: CircuitBreaker
               args:
                 name: catalogCircuitBreaker
                 fallbackUri: forward:/fallback/catalog
-
-        # (3) Order Service
         - id: order-service
           uri: lb://ORDER-SERVICE
           predicates:
-            - Path=/order-service/**, /api/v1/orders/** # ✅ 콤마로 연결
+            - Path=/order-service/**, /api/v1/orders/**
           filters:
             - AuthorizationHeaderFilter
             - name: CircuitBreaker
@@ -64,51 +44,38 @@ spring:
                 fallbackUri: forward:/fallback/order
             - name: RequestRateLimiter
               args:
-                name: defaultRateLimiter
                 key-resolver: "#{@userKeyResolver}"
                 redis-rate-limiter.replenishRate: 10
                 redis-rate-limiter.burstCapacity: 20
                 redis-rate-limiter.requestedTokens: 1
-
-        # (4) Search Service
         - id: search-service
           uri: lb://SEARCH-SERVICE
           predicates:
-            - Path=/search-service/**, /api/v1/search/** # ✅ 콤마로 연결
-
-        # (5) Delivery Service
+            - Path=/search-service/**, /api/v1/search/**
         - id: delivery-service
           uri: lb://DELIVERY-SERVICE
           predicates:
-            - Path=/delivery-service/**, /api/v1/deliveries/** # ✅ 콤마로 연결
+            - Path=/delivery-service/**, /api/v1/deliveries/**
           filters:
             - AuthorizationHeaderFilter
-
-        # (6) Batch Service
         - id: batch-service
           uri: lb://BATCH-SERVICE
           predicates:
-            - Path=/batch-service/** # (단일 경로는 그대로 유지)
-
-        # (7) Payment Service
+            - Path=/batch-service/**
         - id: payment-service
           uri: lb://PAYMENT-SERVICE
           predicates:
-            - Path=/payment-service/** # (단일 경로는 그대로 유지)
+            - Path=/payment-service/**
           filters:
             - AuthorizationHeaderFilter
             - name: CircuitBreaker
               args:
                 name: paymentCircuitBreaker
                 fallbackUri: forward:/fallback/payment
-
-  # 2. Redis 설정 (Rate Limiting용)
   data:
     redis:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
-
-# 3. Jasypt & Security (암호화 키)
 jasypt:
   encryptor:
     bean: jasyptStringEncryptor
@@ -116,12 +83,8 @@ jasypt:
     iv-generator-classname: org.jasypt.iv.RandomIvGenerator
     pool-size: 2
     string-output-type: base64
-
 token:
-  # JWT Secret Key (AES-256 Encrypted)
   secret: ENC(5gtmaAozpeoVMs1gbym2Lt6S32ztOuqnUkaGG458uuYv8DIBuvvF1KBid6L5WQweh95w6TYjgLrzxyCQ/qsOtpGWzmdOY3QY9uq7JyjieyoYRN056Y368w8O1BkSiS8Cindl6C8GNKStrUISmfrUew==)
-
-# 4. Resilience4j (Circuit Breaker & TimeLimiter)
 resilience4j:
   circuitbreaker:
     configs:
@@ -137,29 +100,20 @@ resilience4j:
     configs:
       default:
         timeoutDuration: 5s
-
-# 5. Management & Actuator (핵심 관제 설정)
 management:
   tracing:
     sampling:
-      probability: 1.0 # Zipkin 100% 수집
+      probability: 1.0
   zipkin:
     tracing:
       endpoint: http://localhost:9411/api/v2/spans
-    
-  # ✅ [Critical] Actuator Endpoint 노출 설정
   endpoints:
     web:
       exposure:
         include: health, info, prometheus, gateway, circuitbreakers
-    
-  # ✅ [Critical] Gateway 라우팅 정보 열람 활성화
   endpoint:
     gateway:
       enabled: true
-
-# 6. Eureka Client
-# ✅ [Fix] 401 에러 해결을 위한 보안 계정(adam-eureka) 주입 완료
 eureka:
   client:
     register-with-eureka: true
