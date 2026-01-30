@@ -64,6 +64,7 @@ spring:
                 fallbackUri: forward:/fallback/order
             - name: RequestRateLimiter
               args:
+                name: defaultRateLimiter
                 key-resolver: "#{@userKeyResolver}"
                 redis-rate-limiter.replenishRate: 10
                 redis-rate-limiter.burstCapacity: 20
@@ -145,13 +146,13 @@ management:
   zipkin:
     tracing:
       endpoint: http://localhost:9411/api/v2/spans
-   
+    
   # ✅ [Critical] Actuator Endpoint 노출 설정
   endpoints:
     web:
       exposure:
         include: health, info, prometheus, gateway, circuitbreakers
-   
+    
   # ✅ [Critical] Gateway 라우팅 정보 열람 활성화
   endpoint:
     gateway:
