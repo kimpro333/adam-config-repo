@@ -4,7 +4,7 @@ server:
 spring:
   application:
     name: catalog-service
-  
+   
   # [Database] H2 Console 및 JPA 설정 (초기 개발용)
   # 추후 MariaDB 연결 시 url과 password에 ENC(...) 적용 필수
   h2:
@@ -32,4 +32,4 @@ eureka:
     register-with-eureka: true
     fetch-registry: true
     service-url:
-      defaultZone: http://localhost:8761/eureka
+      defaultZone: http://localhost:8761/eureka/
