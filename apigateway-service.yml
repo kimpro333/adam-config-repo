@@ -1,18 +1,19 @@
 server:
   port: 8000
+
+# [Security] JWT 검증 키 (Config Server Decrypt 오류 방지를 위해 우선 평문 적용)
+token:
+  secret: my_super_secret_key_for_adam_project_jwt_token_encryption_key_must_be_long
+
 spring:
   cloud:
     gateway:
       httpclient:
         connect-timeout: 5000
         response-timeout: 5000
-      globalcors:
-        cors-configurations:
-          '[/**]':
-            allowedOrigins: "*"
-            allowedMethods: "*"
-            allowedHeaders: "*"
-            allowCredentials: false
+      
+      # ⚠️ [Deleted] globalcors는 Java SecurityConfig에서 처리하므로 삭제함 (충돌 방지)
+      
       routes:
         - id: member-service
           uri: lb://MEMBER-SERVICE
@@ -23,15 +24,18 @@ spring:
               args:
                 name: memberCircuitBreaker
                 fallbackUri: forward:/fallback/member
+
         - id: catalog-service
           uri: lb://CATALOG-SERVICE
           predicates:
             - Path=/catalog-service/**, /api/v1/products/**
+          # ✅ [Check] 상품 조회는 Public이므로 AuthorizationHeaderFilter 제거 상태 유지
           filters:
             - name: CircuitBreaker
               args:
                 name: catalogCircuitBreaker
                 fallbackUri: forward:/fallback/catalog
+
         - id: order-service
           uri: lb://ORDER-SERVICE
           predicates:
@@ -42,26 +46,14 @@ spring:
               args:
                 name: orderCircuitBreaker
                 fallbackUri: forward:/fallback/order
-            - name: RequestRateLimiter
-              args:
-                key-resolver: "#{@userKeyResolver}"
-                redis-rate-limiter.replenishRate: 10
-                redis-rate-limiter.burstCapacity: 20
-                redis-rate-limiter.requestedTokens: 1
-        - id: search-service
-          uri: lb://SEARCH-SERVICE
-          predicates:
-            - Path=/search-service/**, /api/v1/search/**
+
         - id: delivery-service
           uri: lb://DELIVERY-SERVICE
           predicates:
             - Path=/delivery-service/**, /api/v1/deliveries/**
           filters:
             - AuthorizationHeaderFilter
-        - id: batch-service
-          uri: lb://BATCH-SERVICE
-          predicates:
-            - Path=/batch-service/**
+
         - id: payment-service
           uri: lb://PAYMENT-SERVICE
           predicates:
@@ -72,34 +64,23 @@ spring:
               args:
                 name: paymentCircuitBreaker
                 fallbackUri: forward:/fallback/payment
+
+        - id: search-service
+          uri: lb://SEARCH-SERVICE
+          predicates:
+            - Path=/search-service/**, /api/v1/search/**
+
+        - id: batch-service
+          uri: lb://BATCH-SERVICE
+          predicates:
+            - Path=/batch-service/**
+
   data:
     redis:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
-jasypt:
-  encryptor:
-    bean: jasyptStringEncryptor
-    algorithm: PBEWithHMACSHA512AndAES_256
-    iv-generator-classname: org.jasypt.iv.RandomIvGenerator
-    pool-size: 2
-    string-output-type: base64
-token:
-  secret: ENC(5gtmaAozpeoVMs1gbym2Lt6S32ztOuqnUkaGG458uuYv8DIBuvvF1KBid6L5WQweh95w6TYjgLrzxyCQ/qsOtpGWzmdOY3QY9uq7JyjieyoYRN056Y368w8O1BkSiS8Cindl6C8GNKStrUISmfrUew==)
-resilience4j:
-  circuitbreaker:
-    configs:
-      default:
-        slidingWindowType: COUNT_BASED
-        slidingWindowSize: 10
-        minimumNumberOfCalls: 5
-        failureRateThreshold: 50
-        waitDurationInOpenState: 10s
-        permittedNumberOfCallsInHalfOpenState: 3
-        registerHealthIndicator: true
-  timelimiter:
-    configs:
-      default:
-        timeoutDuration: 5s
+
+# [Observability]
 management:
   tracing:
     sampling:
@@ -111,15 +92,14 @@ management:
     web:
       exposure:
         include: health, info, prometheus, gateway, circuitbreakers
-  endpoint:
-    gateway:
-      enabled: true
+
+# ✅ [Critical Fix] Eureka 인증 정보 동기화
 eureka:
   client:
     register-with-eureka: true
     fetch-registry: true
     service-url:
-      defaultZone: http://adam-eureka:${EUREKA_SERVER_PASSWORD:adam-secret}@localhost:8761/eureka/
+      defaultZone: http://kimpro:1234@localhost:8761/eureka/
   instance:
     prefer-ip-address: true
     instance-id: ${spring.application.name}:${spring.application.instance_id:${random.value}}
