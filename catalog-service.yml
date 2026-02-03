@@ -2,11 +2,16 @@ server:
   port: 0
 
 spring:
-  # ✅ [Critical Fix] H2(메모리) -> MySQL(로컬) 전환
+  cloud:
+    compatibility-verifier:
+      enabled: false
+
+  # ✅ [Critical Fix] H2(메모리) -> MySQL(로컬) 강제 전환
+  # 이제 Config Server가 이 설정을 내려주므로 로컬 설정이 씹히지 않음
   datasource:
     url: jdbc:mysql://localhost:3306/adam_catalog?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
     username: root
-    password: root # ⚠️ 로컬 DB 비밀번호 확인
+    password: root # ⚠️ 형님의 로컬 DB 비밀번호
     driver-class-name: com.mysql.cj.jdbc.Driver
   
   jpa:
@@ -18,7 +23,7 @@ spring:
         format_sql: true
         jdbc.batch_size: 50
 
-# ✅ [Critical Fix] Eureka 인증 정보 동기화
+# ✅ [Critical Fix] Eureka 인증 정보 동기화 (kimpro:1234)
 eureka:
   client:
     register-with-eureka: true
