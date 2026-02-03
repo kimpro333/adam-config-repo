@@ -7,12 +7,15 @@ token:
 
 spring:
   cloud:
+    compatibility-verifier:
+      enabled: false
+      
     gateway:
       httpclient:
         connect-timeout: 5000
         response-timeout: 5000
       
-      # ⚠️ [Deleted] globalcors는 Java SecurityConfig에서 처리하므로 삭제함 (충돌 방지)
+      # ⚠️ globalcors 설정 삭제됨 (SecurityConfig.java에서 처리)
       
       routes:
         - id: member-service
@@ -29,7 +32,7 @@ spring:
           uri: lb://CATALOG-SERVICE
           predicates:
             - Path=/catalog-service/**, /api/v1/products/**
-          # ✅ [Check] 상품 조회는 Public이므로 AuthorizationHeaderFilter 제거 상태 유지
+          # ✅ [Public] 상품 조회는 인증 필터 없음 (누구나 조회 가능)
           filters:
             - name: CircuitBreaker
               args:
@@ -93,7 +96,7 @@ management:
       exposure:
         include: health, info, prometheus, gateway, circuitbreakers
 
-# ✅ [Critical Fix] Eureka 인증 정보 동기화
+# ✅ [Critical Fix] Eureka 인증 정보 동기화 (kimpro:1234)
 eureka:
   client:
     register-with-eureka: true
