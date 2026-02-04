@@ -1,3 +1,5 @@
+# 파일 경로: apigateway-service/src/main/resources/application.yml
+
 server:
   port: 8000
 
@@ -5,14 +7,14 @@ spring:
   application:
     name: apigateway-service
 
-  # 1. [실행 에러 해결용] Config Server 주소
+  # [통제 타워] Config Server 연결
   config:
     import: "optional:configserver:http://localhost:8888/"
- 
-  # ✅ [Safety Net] 중앙에서 못 받아올 경우를 대비한 기본값 주입
+
+  # ✅ [Safety Net] 중앙 통제 키 주입 (들여쓰기 교정 완료)
   token:
-  secret: ${token.secret:user_token_native_jwt_secret_key_SHOUDL_BE_SAME_AND_VERY_LONG_VALUE_FOR_HS512}
-  expiration_time: ${token.expiration_time:86400000}
+    secret: ${token.secret:user_token_native_jwt_secret_key_SHOUDL_BE_SAME_AND_VERY_LONG_VALUE_FOR_HS512}
+    expiration_time: ${token.expiration_time:86400000}
 
   cloud:
     gateway:
@@ -20,13 +22,13 @@ spring:
         connect-timeout: 5000
         response-timeout: 5000
       
-      # 🚨 [복구] 이게 없어서 405 에러가 떴습니다! (프론트엔드 허용)
+      # [CORS] 프론트엔드 접속 허용 설정
       globalcors:
         cors-configurations:
           '[/**]':
             allowedOrigins:
               - "http://localhost:5500"
-              - "http://127.0.0.1:5500" # 형님 프론트 주소
+              - "http://127.0.0.1:5500"
             allowedMethods:
               - GET
               - POST
@@ -36,9 +38,9 @@ spring:
             allowedHeaders: "*"
             allowCredentials: true
 
-      # [Routes] 비즈니스 로직 (수정 없음)
+      # [Routes] 엔터프라이즈 라우팅 규칙
       routes:
-        # 1. [Member] 일반 통로 (로그인, 회원가입)
+        # 1. [Member] 퍼블릭 통로 (로그인, 가입)
         - id: member-service-public
           uri: lb://MEMBER-SERVICE
           predicates:
@@ -49,19 +51,19 @@ spring:
                 name: memberCircuitBreaker
                 fallbackUri: forward:/fallback/member
 
-        # 2. [Member] 보안 통로 (마이페이지 등)
+        # 2. [Member] 프라이빗 통로 (마이페이지 등)
         - id: member-service-secure
           uri: lb://MEMBER-SERVICE
           predicates:
             - Path=/api/v1/members/**, /member-service/**
           filters:
-            - AuthorizationHeaderFilter # 토큰 검사
+            - AuthorizationHeaderFilter # ✅ JWT 보안 필터 적용
             - name: CircuitBreaker
               args:
                 name: memberCircuitBreaker
                 fallbackUri: forward:/fallback/member
 
-        # [Catalog]
+        # 3. [Catalog]
         - id: catalog-service
           uri: lb://CATALOG-SERVICE
           predicates:
@@ -72,7 +74,7 @@ spring:
                 name: catalogCircuitBreaker
                 fallbackUri: forward:/fallback/catalog
 
-        # [Order]
+        # 4. [Order]
         - id: order-service
           uri: lb://ORDER-SERVICE
           predicates:
@@ -84,7 +86,7 @@ spring:
                 name: orderCircuitBreaker
                 fallbackUri: forward:/fallback/order
 
-        # [Delivery]
+        # 5. [Delivery]
         - id: delivery-service
           uri: lb://DELIVERY-SERVICE
           predicates:
@@ -92,7 +94,7 @@ spring:
           filters:
             - AuthorizationHeaderFilter
 
-        # [Payment]
+        # 6. [Payment]
         - id: payment-service
           uri: lb://PAYMENT-SERVICE
           predicates:
@@ -104,24 +106,13 @@ spring:
                 name: paymentCircuitBreaker
                 fallbackUri: forward:/fallback/payment
 
-        # [Search]
-        - id: search-service
-          uri: lb://SEARCH-SERVICE
-          predicates:
-            - Path=/search-service/**, /api/v1/search/**
-
-        # [Batch]
-        - id: batch-service
-          uri: lb://BATCH-SERVICE
-          predicates:
-            - Path=/batch-service/**
-
+  # [Redis] 세션 및 레이트 리밋용
   data:
     redis:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
 
-# [Eureka]
+# [Discovery] 유레카 등록
 eureka:
   client:
     register-with-eureka: true
@@ -132,7 +123,7 @@ eureka:
     prefer-ip-address: true
     instance-id: ${spring.application.name}:${spring.application.instance_id:${random.value}}
 
-# [Management]
+# [Ops] 모니터링 및 갱신
 management:
   endpoints:
     web:
