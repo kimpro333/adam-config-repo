@@ -8,10 +8,11 @@ spring:
   # 1. [실행 에러 해결용] Config Server 주소
   config:
     import: "optional:configserver:http://localhost:8888/"
-
-  # 2. [토큰 에러 해결용] 암호키 (Member Service와 일치)
+ 
+  # ✅ [Safety Net] 중앙에서 못 받아올 경우를 대비한 기본값 주입
   token:
-    secret: user_token_native_jwt_secret_key_SHOUDL_BE_SAME_AND_VERY_LONG_VALUE_FOR_HS512
+  secret: ${token.secret:user_token_native_jwt_secret_key_SHOUDL_BE_SAME_AND_VERY_LONG_VALUE_FOR_HS512}
+  expiration_time: ${token.expiration_time:86400000}
 
   cloud:
     gateway:
