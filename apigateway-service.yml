@@ -1,27 +1,20 @@
 server:
   port: 8000
 
-# [Security] JWT 검증 키 (Config Server Decrypt 오류 방지를 위해 우선 평문 적용)
-token:
-  secret: my_super_secret_key_for_adam_project_jwt_token_encryption_key_must_be_long
-
 spring:
   cloud:
-    compatibility-verifier:
-      enabled: false
-      
     gateway:
       httpclient:
         connect-timeout: 5000
         response-timeout: 5000
       
-      # ⚠️ globalcors 설정 삭제됨 (SecurityConfig.java에서 처리)
-      
+      # [Routes] 이정표 설정
       routes:
         - id: member-service
           uri: lb://MEMBER-SERVICE
           predicates:
-            - Path=/member-service/**, /api/v1/members/**
+            # 🚨 [Fix] 로그인(/login), 가입(/join) 경로 복구 완료
+            - Path=/api/v1/join, /api/v1/login, /api/v1/members/**, /member-service/**, /actuator/**
           filters:
             - name: CircuitBreaker
               args:
@@ -32,7 +25,6 @@ spring:
           uri: lb://CATALOG-SERVICE
           predicates:
             - Path=/catalog-service/**, /api/v1/products/**
-          # ✅ [Public] 상품 조회는 인증 필터 없음 (누구나 조회 가능)
           filters:
             - name: CircuitBreaker
               args:
@@ -44,7 +36,6 @@ spring:
           predicates:
             - Path=/order-service/**, /api/v1/orders/**
           filters:
-            - AuthorizationHeaderFilter
             - name: CircuitBreaker
               args:
                 name: orderCircuitBreaker
@@ -54,19 +45,11 @@ spring:
           uri: lb://DELIVERY-SERVICE
           predicates:
             - Path=/delivery-service/**, /api/v1/deliveries/**
-          filters:
-            - AuthorizationHeaderFilter
 
         - id: payment-service
           uri: lb://PAYMENT-SERVICE
           predicates:
             - Path=/payment-service/**
-          filters:
-            - AuthorizationHeaderFilter
-            - name: CircuitBreaker
-              args:
-                name: paymentCircuitBreaker
-                fallbackUri: forward:/fallback/payment
 
         - id: search-service
           uri: lb://SEARCH-SERVICE
@@ -83,20 +66,7 @@ spring:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
 
-# [Observability]
-management:
-  tracing:
-    sampling:
-      probability: 1.0
-  zipkin:
-    tracing:
-      endpoint: http://localhost:9411/api/v2/spans
-  endpoints:
-    web:
-      exposure:
-        include: health, info, prometheus, gateway, circuitbreakers
-
-# ✅ [Critical Fix] Eureka 인증 정보 동기화 (kimpro:1234)
+# [Eureka]
 eureka:
   client:
     register-with-eureka: true
