@@ -8,19 +8,32 @@ spring:
         connect-timeout: 5000
         response-timeout: 5000
       
-      # [Routes] 기존 비즈니스 흐름 및 보안 필터 복구
+      # [Routes] 
       routes:
-        - id: member-service
+        # 1. [Member] 일반 통로 (로그인, 회원가입) - 인증 필터 없음
+        - id: member-service-public
           uri: lb://MEMBER-SERVICE
           predicates:
-            - Path=/api/v1/join, /api/v1/login, /api/v1/members/**, /member-service/**
-            # 🚨 중요: 여기에 /actuator/** 가 없어야 정상 (현재 완벽함)
+            - Path=/api/v1/join, /api/v1/login
           filters:
             - name: CircuitBreaker
               args:
                 name: memberCircuitBreaker
                 fallbackUri: forward:/fallback/member
 
+        # 2. [Member] 보안 통로 (마이페이지 등) - 🔒 인증 필터 필수!
+        - id: member-service-secure
+          uri: lb://MEMBER-SERVICE
+          predicates:
+            - Path=/api/v1/members/**, /member-service/**
+          filters:
+            - AuthorizationHeaderFilter # ✅ 여기가 핵심입니다!
+            - name: CircuitBreaker
+              args:
+                name: memberCircuitBreaker
+                fallbackUri: forward:/fallback/member
+
+        # [Catalog]
         - id: catalog-service
           uri: lb://CATALOG-SERVICE
           predicates:
@@ -31,40 +44,45 @@ spring:
                 name: catalogCircuitBreaker
                 fallbackUri: forward:/fallback/catalog
 
+        # [Order]
         - id: order-service
           uri: lb://ORDER-SERVICE
           predicates:
             - Path=/order-service/**, /api/v1/orders/**
           filters:
-            - AuthorizationHeaderFilter  # ✅ 인증 필터 복구
+            - AuthorizationHeaderFilter 
             - name: CircuitBreaker
               args:
                 name: orderCircuitBreaker
                 fallbackUri: forward:/fallback/order
 
+        # [Delivery]
         - id: delivery-service
           uri: lb://DELIVERY-SERVICE
           predicates:
             - Path=/delivery-service/**, /api/v1/deliveries/**
           filters:
-            - AuthorizationHeaderFilter  # ✅ 인증 필터 복구
+            - AuthorizationHeaderFilter
 
+        # [Payment]
         - id: payment-service
           uri: lb://PAYMENT-SERVICE
           predicates:
             - Path=/payment-service/**
           filters:
-            - AuthorizationHeaderFilter  # ✅ 인증 필터 복구
+            - AuthorizationHeaderFilter
             - name: CircuitBreaker
               args:
                 name: paymentCircuitBreaker
                 fallbackUri: forward:/fallback/payment
 
+        # [Search]
         - id: search-service
           uri: lb://SEARCH-SERVICE
           predicates:
             - Path=/search-service/**, /api/v1/search/**
 
+        # [Batch]
         - id: batch-service
           uri: lb://BATCH-SERVICE
           predicates:
@@ -86,7 +104,7 @@ eureka:
     prefer-ip-address: true
     instance-id: ${spring.application.name}:${spring.application.instance_id:${random.value}}
 
-# 🟢 [Management] Actuator 및 Gateway 라우트 확인 기능 활성화 (추가된 부분)
+# [Management]
 management:
   endpoints:
     web:
