@@ -1,5 +1,5 @@
 server:
-  port: 8082 # 랜덤 포트(0) 대신 고정 포트 권장
+  port: 0
 
 spring:
   cloud:
@@ -43,3 +43,4 @@ eureka:
 logging:
   level:
     com.adam: INFO
+
