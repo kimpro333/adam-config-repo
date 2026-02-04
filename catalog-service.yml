@@ -1,18 +1,24 @@
 server:
-  port: 0
+  port: 8082 # 랜덤 포트(0) 대신 고정 포트 권장
 
 spring:
   cloud:
     compatibility-verifier:
       enabled: false
 
-  # ✅ [Critical Fix] H2(메모리) -> MySQL(로컬) 강제 전환
-  # 이제 Config Server가 이 설정을 내려주므로 로컬 설정이 씹히지 않음
+  # ✅ [Critical Fix] AWS RDS 연결 정보로 통일 (Member 서비스와 동일한 인프라 사용)
   datasource:
-    url: jdbc:mysql://localhost:3306/adam_catalog?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
-    username: root
-    password: root # ⚠️ 형님의 로컬 DB 비밀번호
     driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://adam-main-db.c9uycsosecd8.ap-northeast-2.rds.amazonaws.com:3306/adam_catalog?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul&rewriteBatchedStatements=true&cachePrepStmts=true&prepStmtCacheSize=250&prepStmtCacheSqlLimit=2048
+    username: kimpro
+    password: kimpro032577
+
+    hikari:
+      maximum-pool-size: 50
+      minimum-idle: 10
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
   
   jpa:
     hibernate:
@@ -20,10 +26,10 @@ spring:
     show-sql: true
     properties:
       hibernate:
-        format_sql: true
+        format_sql: false
         jdbc.batch_size: 50
 
-# ✅ [Critical Fix] Eureka 인증 정보 동기화 (kimpro:1234)
+# [Eureka]
 eureka:
   client:
     register-with-eureka: true
@@ -36,4 +42,4 @@ eureka:
 
 logging:
   level:
-    com.adam: DEBUG
+    com.adam: INFO
