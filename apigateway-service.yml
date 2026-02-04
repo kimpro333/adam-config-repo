@@ -13,7 +13,7 @@ spring:
         - id: member-service
           uri: lb://MEMBER-SERVICE
           predicates:
-            - Path=/api/v1/join, /api/v1/login, /api/v1/members/**, /member-service/**
+            - Path=/api/v1/join, /api/v1/login, /api/v1/members/**, /member-service/**, /actuator/**
           filters:
             - name: CircuitBreaker
               args:
