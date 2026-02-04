@@ -8,12 +8,11 @@ spring:
         connect-timeout: 5000
         response-timeout: 5000
       
-      # [Routes] 이정표 설정
+      # [Routes] 기존 비즈니스 흐름 및 보안 필터 복구
       routes:
         - id: member-service
           uri: lb://MEMBER-SERVICE
           predicates:
-            # 🚨 [Fix] 로그인(/login), 가입(/join) 경로 복구 완료
             - Path=/api/v1/join, /api/v1/login, /api/v1/members/**, /member-service/**, /actuator/**
           filters:
             - name: CircuitBreaker
@@ -36,6 +35,7 @@ spring:
           predicates:
             - Path=/order-service/**, /api/v1/orders/**
           filters:
+            - AuthorizationHeaderFilter  # ✅ 인증 필터 복구
             - name: CircuitBreaker
               args:
                 name: orderCircuitBreaker
@@ -45,11 +45,19 @@ spring:
           uri: lb://DELIVERY-SERVICE
           predicates:
             - Path=/delivery-service/**, /api/v1/deliveries/**
+          filters:
+            - AuthorizationHeaderFilter  # ✅ 인증 필터 복구
 
         - id: payment-service
           uri: lb://PAYMENT-SERVICE
           predicates:
             - Path=/payment-service/**
+          filters:
+            - AuthorizationHeaderFilter  # ✅ 인증 필터 복구
+            - name: CircuitBreaker
+              args:
+                name: paymentCircuitBreaker
+                fallbackUri: forward:/fallback/payment
 
         - id: search-service
           uri: lb://SEARCH-SERVICE
