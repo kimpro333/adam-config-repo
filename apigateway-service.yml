@@ -14,6 +14,7 @@ spring:
           uri: lb://MEMBER-SERVICE
           predicates:
             - Path=/api/v1/join, /api/v1/login, /api/v1/members/**, /member-service/**
+            # 🚨 중요: 여기에 /actuator/** 가 없어야 정상 (현재 완벽함)
           filters:
             - name: CircuitBreaker
               args:
@@ -84,3 +85,13 @@ eureka:
   instance:
     prefer-ip-address: true
     instance-id: ${spring.application.name}:${spring.application.instance_id:${random.value}}
+
+# 🟢 [Management] Actuator 및 Gateway 라우트 확인 기능 활성화 (추가된 부분)
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info, gateway, refresh
+  endpoint:
+    gateway:
+      enabled: true
