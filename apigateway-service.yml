@@ -2,15 +2,42 @@ server:
   port: 8000
 
 spring:
+  application:
+    name: apigateway-service
+
+  # 1. [실행 에러 해결용] Config Server 주소
+  config:
+    import: "optional:configserver:http://localhost:8888/"
+
+  # 2. [토큰 에러 해결용] 암호키 (Member Service와 일치)
+  token:
+    secret: user_token_native_jwt_secret_key_SHOUDL_BE_SAME_AND_VERY_LONG_VALUE_FOR_HS512
+
   cloud:
     gateway:
       httpclient:
         connect-timeout: 5000
         response-timeout: 5000
       
-      # [Routes] 
+      # 🚨 [복구] 이게 없어서 405 에러가 떴습니다! (프론트엔드 허용)
+      globalcors:
+        cors-configurations:
+          '[/**]':
+            allowedOrigins:
+              - "http://localhost:5500"
+              - "http://127.0.0.1:5500" # 형님 프론트 주소
+            allowedMethods:
+              - GET
+              - POST
+              - PUT
+              - DELETE
+              - OPTIONS
+            allowedHeaders: "*"
+            allowCredentials: true
+
+      # [Routes] 비즈니스 로직 (수정 없음)
       routes:
-        # 1. [Member] 일반 통로 (로그인, 회원가입) - 인증 필터 없음
+        # 1. [Member] 일반 통로 (로그인, 회원가입)
         - id: member-service-public
           uri: lb://MEMBER-SERVICE
           predicates:
@@ -21,13 +48,13 @@ spring:
                 name: memberCircuitBreaker
                 fallbackUri: forward:/fallback/member
 
-        # 2. [Member] 보안 통로 (마이페이지 등) - 🔒 인증 필터 필수!
+        # 2. [Member] 보안 통로 (마이페이지 등)
         - id: member-service-secure
           uri: lb://MEMBER-SERVICE
           predicates:
             - Path=/api/v1/members/**, /member-service/**
           filters:
-            - AuthorizationHeaderFilter # ✅ 여기가 핵심입니다!
+            - AuthorizationHeaderFilter # 토큰 검사
             - name: CircuitBreaker
               args:
                 name: memberCircuitBreaker
@@ -50,7 +77,7 @@ spring:
           predicates:
             - Path=/order-service/**, /api/v1/orders/**
           filters:
-            - AuthorizationHeaderFilter 
+            - AuthorizationHeaderFilter
             - name: CircuitBreaker
               args:
                 name: orderCircuitBreaker
